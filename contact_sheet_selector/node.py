@@ -146,7 +146,8 @@ class ContactSheetSelector(io.ComfyNode):
         preview_signature = _compute_preview_signature(images)
         cached_signature, cached_data = get_preview_cache(node_id)
 
-        if cached_signature == preview_signature and cached_data:
+        reuse_cached = cached_signature == preview_signature and cached_data
+        if reuse_cached:
             preview_data = cached_data
             logger.info("ContactSheetSelector node=%s reusing %s cached preview(s)", node_id, len(preview_data))
         else:
@@ -164,14 +165,17 @@ class ContactSheetSelector(io.ComfyNode):
                     preview_signature,
                 )
 
+        images_for_ui = [] if reuse_cached else preview_data
+
         ui_payload = {
             "contact_sheet": [
                 {
-                    "images": preview_data,
+                    "images": images_for_ui,
                     "selected_active": selection_for_output,
                     "selected_next": selection_for_next,
                     "columns": columns_value,
                     "batch_size": batch_size,
+                    "preview_token": preview_signature,
                 }
             ]
         }

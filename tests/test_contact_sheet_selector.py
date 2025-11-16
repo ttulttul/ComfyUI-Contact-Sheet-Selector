@@ -43,6 +43,10 @@ def test_execute_uses_previous_selection():
 
     assert isinstance(initial_output[0], torch.Tensor)
     assert initial_output[0].shape[0] == 3
+    ui_payload_initial = initial_output.ui.get("contact_sheet")
+    assert isinstance(ui_payload_initial, list)
+    assert ui_payload_initial[0]["preview_token"]
+    assert len(ui_payload_initial[0]["images"]) == 3
 
     state.queue_pending_selection(node_id, [2])
 
@@ -56,6 +60,8 @@ def test_execute_uses_previous_selection():
     assert isinstance(ui_payload, list)
     assert ui_payload[0]["selected_active"] == [2]
     assert ui_payload[0]["selected_next"] == [2]
+    assert ui_payload[0]["preview_token"]
+    assert ui_payload[0]["images"] == []
 
 
 def test_out_of_range_selection_falls_back_to_active():
@@ -136,10 +142,15 @@ def test_preview_cache_reused(monkeypatch):
     monkeypatch.setattr("contact_sheet_selector.node._encode_tensor_to_data_url", fake_encode)
 
     with CurrentNodeContext(prompt_id="prompt-5", node_id=node_id):
-        ContactSheetSelector.execute(images, torch.tensor([0]))
+        first_output = ContactSheetSelector.execute(images, torch.tensor([0]))
 
     with CurrentNodeContext(prompt_id="prompt-5", node_id=node_id):
-        ContactSheetSelector.execute(images, torch.tensor([0]))
+        second_output = ContactSheetSelector.execute(images, torch.tensor([0]))
 
     # Encoding should happen only once per image (first execution only).
     assert encode_calls["count"] == images.shape[0]
+    first_payload = first_output.ui["contact_sheet"][0]
+    second_payload = second_output.ui["contact_sheet"][0]
+    assert first_payload["preview_token"] == second_payload["preview_token"]
+    assert len(first_payload["images"]) == images.shape[0]
+    assert second_payload["images"] == []

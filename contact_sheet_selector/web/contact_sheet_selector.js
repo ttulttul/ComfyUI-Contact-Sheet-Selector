@@ -36,6 +36,7 @@ function createContactSheetWidget(node) {
         selectedActive: new Set(),
         selectedNext: new Set(),
         columns: 0,
+        previewToken: null,
         loading: false,
         node,
         selectionPostPromise: null,
@@ -88,16 +89,38 @@ function createContactSheetWidget(node) {
 
     widget.updateData = async function updateData(data) {
         console.log(`[${EXTENSION_NAMESPACE}] updateData payload`, data);
+        const previewToken =
+            typeof data?.preview_token === "string" && data.preview_token.length > 0
+                ? data.preview_token
+                : null;
         const imageSources = Array.isArray(data?.images) ? data.images : [];
-        widget.images = imageSources;
+        const hasNewImages = imageSources.length > 0;
+        const tokenUnchanged =
+            previewToken !== null && previewToken === widget.previewToken;
+
+        if (hasNewImages) {
+            widget.images = imageSources;
+        }
+
         widget.selectedActive = new Set((data?.selected_active || []).map(Number));
         widget.selectedNext = new Set((data?.selected_next || []).map(Number));
         widget.columns = Number(data?.columns || 0);
         widget.hoverIndex = null;
 
-        if (imageSources.length === 0) {
+        if (!hasNewImages && tokenUnchanged && widget.images.length > 0) {
             console.log(
-                `[${EXTENSION_NAMESPACE}] no images provided in payload; clearing widget`
+                `[${EXTENSION_NAMESPACE}] preview token ${previewToken} unchanged; reusing existing thumbnails`
+            );
+            widget.loading = false;
+            widget.previewToken = previewToken;
+            node.setSize?.(node.computeSize());
+            node.setDirtyCanvas(true, true);
+            return;
+        }
+
+        if (!hasNewImages) {
+            console.log(
+                `[${EXTENSION_NAMESPACE}] no preview images provided in payload; clearing widget`
             );
             widget.bitmaps = [];
             widget.loading = false;
@@ -105,6 +128,7 @@ function createContactSheetWidget(node) {
             widget.cachedHeight = 72;
             node.setSize?.(node.computeSize());
             node.setDirtyCanvas(true, true);
+            widget.previewToken = previewToken;
             return;
         }
 
@@ -125,6 +149,7 @@ function createContactSheetWidget(node) {
             widget.loading = false;
             node.setSize?.(node.computeSize());
             node.setDirtyCanvas(true, true);
+            widget.previewToken = previewToken;
         }
     };
 
