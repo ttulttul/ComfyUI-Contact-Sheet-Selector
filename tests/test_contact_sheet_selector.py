@@ -53,6 +53,5 @@ def test_execute_uses_previous_selection():
     assert torch.allclose(second_output[0], images[2:3])
 
     ui_payload = second_output.ui.get("contact_sheet")
-    assert isinstance(ui_payload, list)
-    assert ui_payload[0]["selected_active"] == [2]
-    assert ui_payload[0]["selected_next"] == [2]
+    assert ui_payload["selected_active"] == [2]
+    assert ui_payload["selected_next"] == [2]

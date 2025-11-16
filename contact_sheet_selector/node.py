@@ -124,15 +124,13 @@ class ContactSheetSelector(io.ComfyNode):
             preview_data = []
 
         ui_payload = {
-            "contact_sheet": [
-                {
-                    "images": preview_data,
-                    "selected_active": selection_for_output,
-                    "selected_next": selection_for_next,
-                    "columns": columns_value,
-                    "batch_size": batch_size,
-                }
-            ]
+            "contact_sheet": {
+                "images": preview_data,
+                "selected_active": selection_for_output,
+                "selected_next": selection_for_next,
+                "columns": columns_value,
+                "batch_size": batch_size,
+            }
         }
 
         return io.NodeOutput(selected_images, ui=ui_payload)
