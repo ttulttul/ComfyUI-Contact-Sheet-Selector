@@ -81,3 +81,29 @@ def test_out_of_range_selection_falls_back_to_active():
     assert isinstance(ui_payload, list)
     assert ui_payload[0]["selected_active"] == [0]
     assert ui_payload[0]["selected_next"] == [0]
+
+
+def test_pending_selection_expands_batch_estimate():
+    node_id = "node-e"
+    images_first = torch.rand((1, 8, 8, 3))
+    images_second = torch.rand((2, 8, 8, 3))
+
+    with CurrentNodeContext(prompt_id="prompt-3", node_id=node_id):
+        initial_output = ContactSheetSelector.execute(images_first, torch.tensor([0]))
+
+    assert initial_output[0].shape[0] == 1
+
+    # User selects both indices; the backend should expand the inferred batch size.
+    state.queue_pending_selection(node_id, [0, 1])
+    pending_state = state.inspect_state(node_id)
+    assert pending_state is not None
+    assert pending_state.pending == [0, 1]
+
+    with CurrentNodeContext(prompt_id="prompt-3", node_id=node_id):
+        second_output = ContactSheetSelector.execute(images_second, torch.tensor([0]))
+
+    assert second_output[0].shape[0] == 2
+    ui_payload = second_output.ui.get("contact_sheet")
+    assert isinstance(ui_payload, list)
+    assert ui_payload[0]["selected_active"] == [0, 1]
+    assert ui_payload[0]["selected_next"] == [0, 1]

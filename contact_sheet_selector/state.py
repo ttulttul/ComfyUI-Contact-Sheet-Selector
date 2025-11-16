@@ -99,21 +99,25 @@ def queue_pending_selection(node_id: str, selection: List[int]) -> List[int]:
     """
     with _state_lock:
         state = _selection_state.setdefault(node_id, NodeSelectionState())
-        # Use the last known batch size to clamp values when possible.
-        batch_size = state.last_batch_size or max(selection, default=-1) + 1
+        # Use the larger of the last known batch size or what the UI selection implies.
+        last_known = state.last_batch_size or 0
+        highest_index = max(selection, default=-1)
+        inferred_size = highest_index + 1 if highest_index >= 0 else 0
+        batch_size = max(last_known, inferred_size)
         sanitized = _sanitize_selection(selection, batch_size)
 
         if selection and not sanitized:
             logger.warning(
-                "Discarding selection outside batch bounds for node %s (incoming=%s, last batch size=%s)",
+                "Discarding selection outside batch bounds for node %s (incoming=%s, last batch size=%s, inferred size=%s)",
                 node_id,
                 selection,
-                batch_size,
+                state.last_batch_size,
+                inferred_size,
             )
             state.pending = None
         else:
             logger.info(
-                "Queued pending selection for node %s: %s (incoming=%s, last batch size=%s)",
+                "Queued pending selection for node %s: %s (incoming=%s, effective batch size=%s)",
                 node_id,
                 sanitized,
                 selection,
