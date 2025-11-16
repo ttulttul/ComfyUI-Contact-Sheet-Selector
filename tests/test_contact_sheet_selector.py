@@ -56,3 +56,28 @@ def test_execute_uses_previous_selection():
     assert isinstance(ui_payload, list)
     assert ui_payload[0]["selected_active"] == [2]
     assert ui_payload[0]["selected_next"] == [2]
+
+
+def test_out_of_range_selection_falls_back_to_active():
+    node_id = "node-d"
+    images_first = torch.rand((2, 8, 8, 3))
+    images_second = torch.rand((1, 8, 8, 3))
+
+    with CurrentNodeContext(prompt_id="prompt-2", node_id=node_id):
+        first_output = ContactSheetSelector.execute(images_first, torch.tensor([0]))
+
+    # Initial run should emit the full batch.
+    assert first_output[0].shape[0] == 2
+
+    # Queue a selection that will be out of range for the next, smaller batch.
+    state.queue_pending_selection(node_id, [5])
+
+    with CurrentNodeContext(prompt_id="prompt-2", node_id=node_id):
+        second_output = ContactSheetSelector.execute(images_second, torch.tensor([0]))
+
+    # The invalid selection should be ignored and the node should fall back to the new active set.
+    assert second_output[0].shape[0] == 1
+    ui_payload = second_output.ui.get("contact_sheet")
+    assert isinstance(ui_payload, list)
+    assert ui_payload[0]["selected_active"] == [0]
+    assert ui_payload[0]["selected_next"] == [0]

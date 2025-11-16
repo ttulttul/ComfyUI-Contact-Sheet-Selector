@@ -106,14 +106,20 @@ class ContactSheetSelector(io.ComfyNode):
             node_id, batch_size
         )
 
-        logger.debug(
-            "ContactSheetSelector node=%s batch=%s columns=%s selection=%s next=%s",
+        logger.info(
+            "ContactSheetSelector execute node=%s batch=%s columns=%s output_selection=%s next_selection=%s",
             node_id,
             batch_size,
             columns_value,
             selection_for_output,
             selection_for_next,
         )
+
+        if batch_size and not selection_for_output:
+            logger.warning(
+                "ContactSheetSelector node=%s produced empty selection for non-empty batch",
+                node_id,
+            )
 
         selected_images = _gather_selected_images(images, selection_for_output)
 
@@ -168,7 +174,12 @@ if PromptServer is not None:
             return web.json_response({"error": "selection_contains_non_int"}, status=400)
 
         sanitized = queue_pending_selection(str(node_id), selection)
-        logger.debug("Received UI selection for node %s: %s", node_id, sanitized)
+        logger.info(
+            "Received UI selection for node %s (raw=%s, sanitized=%s)",
+            node_id,
+            selection,
+            sanitized,
+        )
         return web.json_response({"selection": sanitized})
 
 

@@ -102,15 +102,24 @@ def queue_pending_selection(node_id: str, selection: List[int]) -> List[int]:
         # Use the last known batch size to clamp values when possible.
         batch_size = state.last_batch_size or max(selection, default=-1) + 1
         sanitized = _sanitize_selection(selection, batch_size)
-        state.pending = sanitized
 
-        logger.debug(
-            "Queued pending selection for node %s: %s (incoming=%s, last batch size=%s)",
-            node_id,
-            sanitized,
-            selection,
-            batch_size,
-        )
+        if selection and not sanitized:
+            logger.warning(
+                "Discarding selection outside batch bounds for node %s (incoming=%s, last batch size=%s)",
+                node_id,
+                selection,
+                batch_size,
+            )
+            state.pending = None
+        else:
+            logger.info(
+                "Queued pending selection for node %s: %s (incoming=%s, last batch size=%s)",
+                node_id,
+                sanitized,
+                selection,
+                batch_size,
+            )
+            state.pending = sanitized
         return sanitized
 
 
