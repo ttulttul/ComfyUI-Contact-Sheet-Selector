@@ -107,3 +107,18 @@ def test_pending_selection_expands_batch_estimate():
     assert isinstance(ui_payload, list)
     assert ui_payload[0]["selected_active"] == [0, 1]
     assert ui_payload[0]["selected_next"] == [0, 1]
+
+
+def test_fingerprint_reflects_pending_selection():
+    node_id = "node-f"
+    images = torch.rand((2, 8, 8, 3))
+
+    state.queue_pending_selection(node_id, [0])
+    with CurrentNodeContext(prompt_id="prompt-4", node_id=node_id):
+        base_fp = ContactSheetSelector.fingerprint_inputs(images, torch.tensor([0]))
+
+    state.queue_pending_selection(node_id, [1])
+    with CurrentNodeContext(prompt_id="prompt-4", node_id=node_id):
+        updated_fp = ContactSheetSelector.fingerprint_inputs(images, torch.tensor([0]))
+
+    assert base_fp != updated_fp

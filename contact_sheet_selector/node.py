@@ -18,7 +18,11 @@ try:  # pragma: no cover - server import is optional in tests
 except ModuleNotFoundError:  # pragma: no cover - running outside ComfyUI
     PromptServer = None
 
-from .state import resolve_selection_for_execution, queue_pending_selection
+from .state import (
+    resolve_selection_for_execution,
+    queue_pending_selection,
+    inspect_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +146,26 @@ class ContactSheetSelector(io.ComfyNode):
         }
 
         return io.NodeOutput(selected_images, ui=ui_payload)
+
+    @classmethod
+    def fingerprint_inputs(cls, images: torch.Tensor, columns) -> tuple[int, ...] | None:
+        """
+        Ensure ComfyUI's execution cache is invalidated when the selection state changes.
+        """
+        executing_context = get_executing_context()
+        node_id = executing_context.node_id if executing_context else "ContactSheetSelector"
+        snapshot = inspect_state(node_id)
+        if snapshot is None:
+            return None
+
+        if snapshot.pending is not None:
+            selection = tuple(snapshot.pending)
+        else:
+            selection = tuple(snapshot.active)
+
+        batch_size = snapshot.last_batch_size
+        columns_value = max(0, _ensure_int(columns))
+        return selection + (batch_size, columns_value)
 
 
 class ContactSheetExtension(ComfyExtension):

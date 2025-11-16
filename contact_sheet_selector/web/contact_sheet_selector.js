@@ -171,9 +171,9 @@ function createContactSheetWidget(node) {
                 width: tileWidth,
                 height: tileHeight,
             });
-            console.log(
-                `[${EXTENSION_NAMESPACE}] layout ${index} -> col=${col} row=${row} x=${x} y=${y} w=${tileWidth} h=${tileHeight}`
-            );
+            // console.log(
+            //    `[${EXTENSION_NAMESPACE}] layout ${index} -> col=${col} row=${row} x=${x} y=${y} w=${tileWidth} h=${tileHeight}`
+            // );
         }
 
         return widget.cachedHeight;
