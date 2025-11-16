@@ -1,6 +1,9 @@
 import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
+const EXTENSION_NAMESPACE = "ContactSheetSelector";
+console.log(`[${EXTENSION_NAMESPACE}] frontend script loaded`);
+
 const pointerDownEvent = LiteGraph.pointerevents_method + "down";
 const pointerMoveEvent = LiteGraph.pointerevents_method + "move";
 
@@ -38,7 +41,7 @@ function createContactSheetWidget(node) {
 
     widget.updateData = async function updateData(data) {
         if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
-            console.debug("ContactSheetSelector.updateData payload", data);
+            console.debug(`[${EXTENSION_NAMESPACE}] updateData payload`, data);
         }
         const imageSources = Array.isArray(data?.images) ? data.images : [];
         widget.images = imageSources;
@@ -326,12 +329,42 @@ function createContactSheetWidget(node) {
     return widget;
 }
 
+function extractUiData(message) {
+    if (!message) {
+        return null;
+    }
+    if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
+        console.debug(`[${EXTENSION_NAMESPACE}] onExecuted message`, message);
+    }
+    const raw =
+        message?.contact_sheet ??
+        message?.ui?.contact_sheet ??
+        (Array.isArray(message?.ui) ? message.ui[0] : undefined) ??
+        message?.ui_data;
+    if (Array.isArray(raw)) {
+        return raw[0];
+    }
+    return raw || null;
+}
+
 app.registerExtension({
     name: "ContactSheetSelector.Widget",
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData?.name !== "ContactSheetSelector") {
             return;
         }
+
+        const originalPrototypeOnExecuted = nodeType.prototype.onExecuted;
+        nodeType.prototype.onExecuted = function contactSheetPrototypeOnExecuted(message) {
+            originalPrototypeOnExecuted?.apply(this, arguments);
+            const widget = this.contactSheetWidget;
+            if (widget) {
+                const uiData = extractUiData(message);
+                if (uiData) {
+                    widget.updateData(uiData);
+                }
+            }
+        };
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function onNodeCreatedWrapper() {
@@ -344,13 +377,10 @@ app.registerExtension({
             const originalOnExecuted = this.onExecuted;
             this.onExecuted = function contactSheetOnExecuted(message) {
                 originalOnExecuted?.apply(this, arguments);
-                if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
-                    console.debug("ContactSheetSelector onExecuted payload", message);
+                const uiData = extractUiData(message);
+                if (uiData) {
+                    this.contactSheetWidget?.updateData(uiData);
                 }
-                const rawData =
-                    message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
-                const uiData = Array.isArray(rawData) ? rawData[0] : rawData;
-                this.contactSheetWidget?.updateData(uiData);
             };
         };
     },
