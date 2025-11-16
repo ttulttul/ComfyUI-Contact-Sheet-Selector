@@ -42,9 +42,7 @@ function createContactSheetWidget(node) {
     };
 
     widget.updateData = async function updateData(data) {
-        if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
-            console.debug(`[${EXTENSION_NAMESPACE}] updateData payload`, data);
-        }
+        console.log(`[${EXTENSION_NAMESPACE}] updateData payload`, data);
         const imageSources = Array.isArray(data?.images) ? data.images : [];
         widget.images = imageSources;
         widget.selectedActive = new Set((data?.selected_active || []).map(Number));
@@ -53,6 +51,9 @@ function createContactSheetWidget(node) {
         widget.hoverIndex = null;
 
         if (imageSources.length === 0) {
+            console.log(
+                `[${EXTENSION_NAMESPACE}] no images provided in payload; clearing widget`
+            );
             widget.bitmaps = [];
             widget.loading = false;
             widget.layouts = [];
@@ -63,9 +64,15 @@ function createContactSheetWidget(node) {
         }
 
         widget.loading = true;
+        console.log(
+            `[${EXTENSION_NAMESPACE}] loading ${imageSources.length} thumbnail(s)`
+        );
         try {
             const bitmaps = await Promise.all(imageSources.map(loadImage));
             widget.bitmaps = bitmaps;
+            console.log(
+                `[${EXTENSION_NAMESPACE}] loaded ${bitmaps.length} thumbnail(s)`
+            );
         } catch (error) {
             console.error("ContactSheetSelector: failed to load thumbnails", error);
             widget.bitmaps = [];
@@ -258,6 +265,10 @@ function createContactSheetWidget(node) {
         } else {
             widget.selectedNext.add(index);
         }
+        console.log(
+            `[${EXTENSION_NAMESPACE}] toggled index ${index}; next selection now`,
+            Array.from(widget.selectedNext.values()).sort((a, b) => a - b)
+        );
         widget.node.setDirtyCanvas(true, true);
         void widget.notifySelectionChange();
     };
@@ -326,8 +337,13 @@ function createContactSheetWidget(node) {
         widget.layouts = [];
         widget.selectedActive.clear();
         widget.selectedNext.clear();
+        console.log(`[${EXTENSION_NAMESPACE}] widget removed`);
     };
 
+    console.log(
+        `[${EXTENSION_NAMESPACE}] widget created for node`,
+        node?.id ?? "(unknown)"
+    );
     return widget;
 }
 
@@ -335,9 +351,7 @@ function extractUiData(message) {
     if (!message) {
         return null;
     }
-    if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
-        console.debug(`[${EXTENSION_NAMESPACE}] onExecuted message`, message);
-    }
+    console.log(`[${EXTENSION_NAMESPACE}] onExecuted message`, message);
     const raw =
         message?.contact_sheet ??
         message?.ui?.contact_sheet ??
@@ -363,7 +377,15 @@ app.registerExtension({
             if (widget) {
                 const uiData = extractUiData(message);
                 if (uiData) {
+                    console.log(
+                        `[${EXTENSION_NAMESPACE}] prototype handler updating widget for node`,
+                        this?.id ?? "(unknown)"
+                    );
                     widget.updateData(uiData);
+                } else {
+                    console.log(
+                        `[${EXTENSION_NAMESPACE}] prototype handler received message without contact sheet data`
+                    );
                 }
             }
         };
@@ -381,7 +403,15 @@ app.registerExtension({
                 originalOnExecuted?.apply(this, arguments);
                 const uiData = extractUiData(message);
                 if (uiData) {
+                    console.log(
+                        `[${EXTENSION_NAMESPACE}] instance handler updating widget for node`,
+                        this?.id ?? "(unknown)"
+                    );
                     this.contactSheetWidget?.updateData(uiData);
+                } else {
+                    console.log(
+                        `[${EXTENSION_NAMESPACE}] instance handler received message without contact sheet data`
+                    );
                 }
             };
         };
