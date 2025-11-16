@@ -148,7 +148,7 @@ class ContactSheetSelector(io.ComfyNode):
 
         if cached_signature == preview_signature and cached_data:
             preview_data = cached_data
-            logger.debug("Reusing cached previews for node %s", node_id)
+            logger.info("ContactSheetSelector node=%s reusing %s cached preview(s)", node_id, len(preview_data))
         else:
             try:
                 preview_data = [_encode_tensor_to_data_url(images[idx]) for idx in range(batch_size)]
@@ -157,6 +157,12 @@ class ContactSheetSelector(io.ComfyNode):
                 preview_data = []
             else:
                 update_preview_cache(node_id, preview_signature, preview_data)
+                logger.info(
+                    "ContactSheetSelector node=%s encoded %s preview(s) (signature=%s)",
+                    node_id,
+                    len(preview_data),
+                    preview_signature,
+                )
 
         ui_payload = {
             "contact_sheet": [
