@@ -289,8 +289,8 @@ function createContactSheetWidget(node) {
             return false;
         }
 
-        const localX = pos[0] - node.pos[0];
-        const localY = pos[1] - node.pos[1];
+        const localX = pos[0];
+        const localY = pos[1];
 
         const relativeY = localY - widget.lastWidgetY;
 
