@@ -115,10 +115,10 @@ def test_fingerprint_reflects_pending_selection():
 
     state.queue_pending_selection(node_id, [0])
     with CurrentNodeContext(prompt_id="prompt-4", node_id=node_id):
-        base_fp = ContactSheetSelector.fingerprint_inputs(images, torch.tensor([0]))
+        base_fp = ContactSheetSelector.fingerprint_inputs(images=images, columns=torch.tensor([0]))
 
     state.queue_pending_selection(node_id, [1])
     with CurrentNodeContext(prompt_id="prompt-4", node_id=node_id):
-        updated_fp = ContactSheetSelector.fingerprint_inputs(images, torch.tensor([0]))
+        updated_fp = ContactSheetSelector.fingerprint_inputs(images=images, columns=torch.tensor([0]))
 
     assert base_fp != updated_fp

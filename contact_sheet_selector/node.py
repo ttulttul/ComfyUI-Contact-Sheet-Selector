@@ -148,7 +148,7 @@ class ContactSheetSelector(io.ComfyNode):
         return io.NodeOutput(selected_images, ui=ui_payload)
 
     @classmethod
-    def fingerprint_inputs(cls, images: torch.Tensor, columns) -> tuple[int, ...] | None:
+    def fingerprint_inputs(cls, **kwargs) -> tuple[int, ...] | None:
         """
         Ensure ComfyUI's execution cache is invalidated when the selection state changes.
         """
@@ -164,7 +164,12 @@ class ContactSheetSelector(io.ComfyNode):
             selection = tuple(snapshot.active)
 
         batch_size = snapshot.last_batch_size
-        columns_value = max(0, _ensure_int(columns))
+        columns_value = 0
+        if "columns" in kwargs:
+            try:
+                columns_value = max(0, _ensure_int(kwargs["columns"]))
+            except Exception:  # pragma: no cover - defensive
+                columns_value = 0
         return selection + (batch_size, columns_value)
 
 
