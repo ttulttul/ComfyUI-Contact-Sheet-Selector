@@ -346,7 +346,8 @@ app.registerExtension({
             if (!widget) {
                 return;
             }
-            widget.updateData(message?.contact_sheet);
+            const uiData = message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
+            widget.updateData(uiData);
         };
     },
 });
