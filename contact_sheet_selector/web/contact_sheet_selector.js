@@ -292,11 +292,16 @@ function createContactSheetWidget(node) {
         const localX = pos[0] - node.pos[0];
         const localY = pos[1] - node.pos[1];
 
+        const relativeY = localY - widget.lastWidgetY;
+
         const pointerOverWidget =
             localX >= widget.padding &&
             localX <= widget.cachedWidth - widget.padding &&
-            localY >= widget.lastWidgetY &&
-            localY <= widget.lastWidgetY + widget.cachedHeight;
+            relativeY >= 0 &&
+            relativeY <= widget.cachedHeight;
+        console.log(
+            `[${EXTENSION_NAMESPACE}] pointerOverWidget=${pointerOverWidget} localX=${localX} localY=${localY} relativeY=${relativeY} widgetY=${widget.lastWidgetY} height=${widget.cachedHeight}`
+        );
 
         if (!pointerOverWidget) {
             console.log(`[${EXTENSION_NAMESPACE}] pointer outside widget bounds`);
@@ -310,8 +315,8 @@ function createContactSheetWidget(node) {
             const inside =
                 localX >= layout.x &&
                 localX <= layout.x + layout.width &&
-                localY >= layout.y &&
-                localY <= layout.y + layout.height;
+                relativeY >= layout.y &&
+                relativeY <= layout.y + layout.height;
             if (!inside) {
                 continue;
             }
