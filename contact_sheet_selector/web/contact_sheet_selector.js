@@ -126,6 +126,9 @@ function createContactSheetWidget(node) {
                 width: tileWidth,
                 height: tileHeight,
             });
+            console.log(
+                `[${EXTENSION_NAMESPACE}] layout ${index} -> col=${col} row=${row} x=${x} y=${y} w=${tileWidth} h=${tileHeight}`
+            );
         }
 
         return widget.cachedHeight;
@@ -298,13 +301,36 @@ function createContactSheetWidget(node) {
             return false;
         }
 
-        const localX = pos[0] - node.pos[0];
-        const localY = pos[1] - node.pos[1];
+        const toLocal = (ds, coordinates) => {
+            const [gx, gy] = ds.convertCanvasToOffset(coordinates);
+            return [gx - node.pos[0], gy - node.pos[1]];
+        };
+
+        let localX;
+        let localY;
+
+        const nodeCanvasDS = node.graph?.canvas?.ds;
+        const parentCanvasDS = node.graph?.parent_graph?.canvas?.ds;
+
+        if (nodeCanvasDS?.convertCanvasToOffset) {
+            [localX, localY] = toLocal(nodeCanvasDS, pos);
+        } else if (parentCanvasDS?.convertCanvasToOffset) {
+            [localX, localY] = toLocal(parentCanvasDS, pos);
+        } else {
+            localX = pos[0] - node.pos[0];
+            localY = pos[1] - node.pos[1];
+        }
 
         const relativeY = localY - widget.lastWidgetY;
+        console.log(
+            `[${EXTENSION_NAMESPACE}] local coords x=${localX} y=${localY} relativeY=${relativeY} nodePos=(${node.pos?.[0]}, ${node.pos?.[1]})`
+        );
 
         let handled = false;
         for (const layout of widget.layouts) {
+            console.log(
+                `[${EXTENSION_NAMESPACE}] checking layout index=${layout.index} x=${layout.x}-${layout.x + layout.width} y=${layout.y}-${layout.y + layout.height}`
+            );
             const inside =
                 localX >= layout.x &&
                 localX <= layout.x + layout.width &&
