@@ -260,6 +260,7 @@ function createContactSheetWidget(node) {
     };
 
     widget.toggleSelection = function toggleSelection(index) {
+        console.log(`[${EXTENSION_NAMESPACE}] toggleSelection called with index`, index);
         if (widget.selectedNext.has(index)) {
             widget.selectedNext.delete(index);
         } else {
@@ -282,7 +283,9 @@ function createContactSheetWidget(node) {
     };
 
     widget.mouse = function mouse(event, pos, node) {
+        console.log(`[${EXTENSION_NAMESPACE}] mouse event`, event?.type, pos, node?.id ?? "(unknown)");
         if (!widget.layouts.length) {
+            console.log(`[${EXTENSION_NAMESPACE}] mouse event ignored; no layouts available`);
             return false;
         }
 
@@ -296,6 +299,7 @@ function createContactSheetWidget(node) {
             localY <= widget.lastWidgetY + widget.cachedHeight;
 
         if (!pointerOverWidget) {
+            console.log(`[${EXTENSION_NAMESPACE}] pointer outside widget bounds`);
             if (event.type === pointerMoveEvent) {
                 widget.updateHover(null);
             }
@@ -313,6 +317,13 @@ function createContactSheetWidget(node) {
             }
 
             if (event.type === pointerDownEvent) {
+                console.log(
+                    `[${EXTENSION_NAMESPACE}] pointer down on tile`,
+                    layout.index,
+                    "local coords",
+                    localX,
+                    localY
+                );
                 widget.toggleSelection(layout.index);
                 return true;
             }
