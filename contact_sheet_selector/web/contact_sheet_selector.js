@@ -37,6 +37,9 @@ function createContactSheetWidget(node) {
     };
 
     widget.updateData = async function updateData(data) {
+        if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
+            console.debug("ContactSheetSelector.updateData payload", data);
+        }
         const imageSources = Array.isArray(data?.images) ? data.images : [];
         widget.images = imageSources;
         widget.selectedActive = new Set((data?.selected_active || []).map(Number));
@@ -337,22 +340,18 @@ app.registerExtension({
             this.contactSheetWidget = createContactSheetWidget(this);
             this.widgets.push(this.contactSheetWidget);
             this.setSize?.(this.computeSize());
-        };
 
-        const onExecuted = nodeType.prototype.onExecuted;
-        nodeType.prototype.onExecuted = function onExecutedWrapper(message) {
-            onExecuted?.apply(this, arguments);
-            const widget = this.contactSheetWidget;
-            if (!widget) {
-                return;
-            }
-            if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
-                console.debug("ContactSheetSelector onExecuted payload", message);
-            }
-            const rawData =
-                message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
-            const uiData = Array.isArray(rawData) ? rawData[0] : rawData;
-            widget.updateData(uiData);
+            const originalOnExecuted = this.onExecuted;
+            this.onExecuted = function contactSheetOnExecuted(message) {
+                originalOnExecuted?.apply(this, arguments);
+                if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
+                    console.debug("ContactSheetSelector onExecuted payload", message);
+                }
+                const rawData =
+                    message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
+                const uiData = Array.isArray(rawData) ? rawData[0] : rawData;
+                this.contactSheetWidget?.updateData(uiData);
+            };
         };
     },
 });
