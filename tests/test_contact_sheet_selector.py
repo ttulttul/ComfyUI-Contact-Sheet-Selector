@@ -122,3 +122,24 @@ def test_fingerprint_reflects_pending_selection():
         updated_fp = ContactSheetSelector.fingerprint_inputs(images=images, columns=torch.tensor([0]))
 
     assert base_fp != updated_fp
+
+
+def test_preview_cache_reused(monkeypatch):
+    node_id = "node-g"
+    images = torch.rand((2, 8, 8, 3))
+    encode_calls = {"count": 0}
+
+    def fake_encode(image_tensor):
+        encode_calls["count"] += 1
+        return f"data:image/png;base64,fake{encode_calls['count']}"
+
+    monkeypatch.setattr("contact_sheet_selector.node._encode_tensor_to_data_url", fake_encode)
+
+    with CurrentNodeContext(prompt_id="prompt-5", node_id=node_id):
+        ContactSheetSelector.execute(images, torch.tensor([0]))
+
+    with CurrentNodeContext(prompt_id="prompt-5", node_id=node_id):
+        ContactSheetSelector.execute(images, torch.tensor([0]))
+
+    # Encoding should happen only once per image (first execution only).
+    assert encode_calls["count"] == images.shape[0]

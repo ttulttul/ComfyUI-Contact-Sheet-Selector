@@ -30,7 +30,7 @@ The optional **columns** input lets you customise the number of thumbnails shown
 - Backend logic lives in `contact_sheet_selector/node.py`, with selection state helpers in `contact_sheet_selector/state.py`.
 - The custom frontend widget is implemented in `contact_sheet_selector/web/contact_sheet_selector.js`.
 - Pointer-coordinate diagnostics in the frontend widget now capture both the raw widget-relative coordinates (which LiteGraph already supplies) and every drag-and-scale context so we can confirm when we must fall back to canvas conversions.
-- Selection changes are persisted onto the node’s properties, triggering LiteGraph’s `graphChanged` event so auto-queue setups notice the delta (and the backend emits INFO-level logs for the same transitions, including the inferred batch size). The node’s cache fingerprint also incorporates the pending selection so ComfyUI can’t reuse stale cached outputs.
+- Selection changes are persisted onto the node’s properties, triggering LiteGraph’s `graphChanged` event so auto-queue setups notice the delta (and the backend emits INFO-level logs for the same transitions, including the inferred batch size). The node’s cache fingerprint incorporates the pending selection so ComfyUI can’t reuse stale cached outputs, and preview thumbnails are cached between runs to avoid re-encoding identical batches.
 - Automated tests cover the state lifecycles and the delayed-selection behaviour (`tests/test_contact_sheet_selector.py`). Run them with:
 
 ```bash

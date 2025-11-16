@@ -8,11 +8,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class NodeSelectionState:
-    """Holds the selection lifecycle for a node."""
+    """Holds the selection lifecycle and lightweight preview cache for a node."""
 
     active: List[int] = field(default_factory=list)
     pending: Optional[List[int]] = None
     last_batch_size: int = 0
+    preview_token: Optional[str] = None
+    preview_data: List[str] = field(default_factory=list)
 
 
 _selection_state: Dict[str, NodeSelectionState] = {}
@@ -150,6 +152,8 @@ def inspect_state(node_id: str) -> Optional[NodeSelectionState]:
             active=list(state.active),
             pending=None if state.pending is None else list(state.pending),
             last_batch_size=state.last_batch_size,
+            preview_token=state.preview_token,
+            preview_data=list(state.preview_data),
         )
 
 
@@ -158,3 +162,20 @@ def reset_state() -> None:
     with _state_lock:
         _selection_state.clear()
         logger.debug("Cleared all contact sheet selection state")
+
+
+def get_preview_cache(node_id: str) -> tuple[Optional[str], Optional[List[str]]]:
+    """Return the cached preview token and data for a node, if available."""
+    with _state_lock:
+        state = _selection_state.get(node_id)
+        if state is None or not state.preview_data:
+            return None, None
+        return state.preview_token, list(state.preview_data)
+
+
+def update_preview_cache(node_id: str, token: str, data: List[str]) -> None:
+    """Persist the preview token and data for reuse across executions."""
+    with _state_lock:
+        state = _selection_state.setdefault(node_id, NodeSelectionState())
+        state.preview_token = token
+        state.preview_data = list(data)

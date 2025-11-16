@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 from io import BytesIO
 from typing import List
@@ -22,6 +23,8 @@ from .state import (
     resolve_selection_for_execution,
     queue_pending_selection,
     inspect_state,
+    get_preview_cache,
+    update_preview_cache,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +64,19 @@ def _gather_selected_images(images: torch.Tensor, selection: List[int]) -> torch
         return images[0:0]
     index_tensor = torch.tensor(selection, dtype=torch.long, device=images.device)
     return torch.index_select(images, 0, index_tensor)
+
+
+def _compute_preview_signature(images: torch.Tensor) -> str:
+    """Create a lightweight signature so we can reuse previously encoded previews."""
+    tensor = images.detach()
+    shape = tuple(int(dim) for dim in tensor.shape)
+    numel = tensor.numel()
+    sample_size = min(numel, 4096)
+    if sample_size == 0:
+        return f"{shape}|empty"
+    sample = tensor.flatten()[:sample_size].to(dtype=torch.float32, device="cpu", copy=True)
+    digest = hashlib.sha1(sample.numpy().tobytes()).hexdigest()
+    return f"{shape}|{sample_size}|{digest}"
 
 
 class ContactSheetSelector(io.ComfyNode):
@@ -127,11 +143,20 @@ class ContactSheetSelector(io.ComfyNode):
 
         selected_images = _gather_selected_images(images, selection_for_output)
 
-        try:
-            preview_data = [_encode_tensor_to_data_url(images[idx]) for idx in range(batch_size)]
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.exception("Failed to encode preview images for node %s: %s", node_id, exc)
-            preview_data = []
+        preview_signature = _compute_preview_signature(images)
+        cached_signature, cached_data = get_preview_cache(node_id)
+
+        if cached_signature == preview_signature and cached_data:
+            preview_data = cached_data
+            logger.debug("Reusing cached previews for node %s", node_id)
+        else:
+            try:
+                preview_data = [_encode_tensor_to_data_url(images[idx]) for idx in range(batch_size)]
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.exception("Failed to encode preview images for node %s: %s", node_id, exc)
+                preview_data = []
+            else:
+                update_preview_cache(node_id, preview_signature, preview_data)
 
         ui_payload = {
             "contact_sheet": [
