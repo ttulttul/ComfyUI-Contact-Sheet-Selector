@@ -2,6 +2,7 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 const EXTENSION_NAMESPACE = "ContactSheetSelector";
+const PERSISTED_SELECTION_PROPERTY = "__contact_sheet_pending_selection";
 console.log(`[${EXTENSION_NAMESPACE}] frontend script loaded`);
 
 const pointerDownEvent =
@@ -39,6 +40,50 @@ function createContactSheetWidget(node) {
         node,
         selectionPostPromise: null,
         hoverIndex: null,
+    };
+
+    const arraysEqual = (left = [], right = []) => {
+        if (!Array.isArray(left) || !Array.isArray(right)) {
+            return false;
+        }
+        if (left.length !== right.length) {
+            return false;
+        }
+        for (let index = 0; index < left.length; index += 1) {
+            if (left[index] !== right[index]) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const persistSelectionOnNode = (selection) => {
+        if (!node) {
+            return;
+        }
+        const graph = node.graph;
+        const properties = node.properties || (node.properties = {});
+        const previous = Array.isArray(properties[PERSISTED_SELECTION_PROPERTY])
+            ? properties[PERSISTED_SELECTION_PROPERTY].map((value) => Number(value))
+            : [];
+        const normalized = Array.isArray(selection)
+            ? selection.map((value) => Number(value))
+            : [];
+        if (arraysEqual(previous, normalized)) {
+            return;
+        }
+        try {
+            graph?.beforeChange?.();
+        } catch (error) {
+            console.warn(`[${EXTENSION_NAMESPACE}] beforeChange hook failed`, error);
+        }
+        properties[PERSISTED_SELECTION_PROPERTY] = normalized.slice();
+        try {
+            graph?.afterChange?.();
+        } catch (error) {
+            console.warn(`[${EXTENSION_NAMESPACE}] afterChange hook failed`, error);
+        }
+        graph?.setDirtyCanvas?.(true, true);
     };
 
     widget.updateData = async function updateData(data) {
@@ -250,6 +295,8 @@ function createContactSheetWidget(node) {
             payload
         );
 
+        persistSelectionOnNode(selection);
+
         try {
             widget.selectionPostPromise = api.fetchApi("/contact-sheet-selector/selection", {
                 method: "POST",
@@ -258,7 +305,30 @@ function createContactSheetWidget(node) {
                 },
                 body: JSON.stringify(payload),
             });
-            await widget.selectionPostPromise;
+            const response = await widget.selectionPostPromise;
+            let sanitizedSelection = selection;
+            if (response && typeof response.json === "function") {
+                try {
+                    const data = await response.json();
+                    if (data && Array.isArray(data.selection)) {
+                        sanitizedSelection = data.selection.map((value) => Number(value));
+                    }
+                } catch (error) {
+                    console.warn(
+                        `[${EXTENSION_NAMESPACE}] failed to parse selection POST response`,
+                        error
+                    );
+                }
+            }
+            if (!arraysEqual(selection, sanitizedSelection)) {
+                console.log(
+                    `[${EXTENSION_NAMESPACE}] selection sanitized by backend`,
+                    sanitizedSelection
+                );
+                widget.selectedNext = new Set(sanitizedSelection);
+                persistSelectionOnNode(sanitizedSelection);
+                widget.node.setDirtyCanvas(true, true);
+            }
             console.log(`[${EXTENSION_NAMESPACE}] selection POST completed`);
         } catch (error) {
             console.error("ContactSheetSelector: failed to persist selection", error);
