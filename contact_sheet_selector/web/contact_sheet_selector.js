@@ -346,7 +346,12 @@ app.registerExtension({
             if (!widget) {
                 return;
             }
-            const uiData = message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
+            if (window.DEBUG_CONTACT_SHEET_SELECTOR) {
+                console.debug("ContactSheetSelector onExecuted payload", message);
+            }
+            const rawData =
+                message?.contact_sheet ?? message?.ui?.contact_sheet ?? message?.ui_data;
+            const uiData = Array.isArray(rawData) ? rawData[0] : rawData;
             widget.updateData(uiData);
         };
     },
