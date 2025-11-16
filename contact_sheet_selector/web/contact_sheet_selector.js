@@ -347,6 +347,44 @@ function createContactSheetWidget(node) {
     return widget;
 }
 
+function mergeContactSheetEntries(entries) {
+    const merged = {
+        images: [],
+        selected_active: [],
+        selected_next: [],
+        columns: 0,
+        batch_size: 0,
+    };
+
+    entries.forEach((entry, index) => {
+        if (!entry || typeof entry !== "object") {
+            return;
+        }
+        if (Array.isArray(entry.images)) {
+            merged.images.push(...entry.images);
+        }
+        if (Array.isArray(entry.selected_active)) {
+            merged.selected_active = entry.selected_active.slice();
+        }
+        if (Array.isArray(entry.selected_next)) {
+            merged.selected_next = entry.selected_next.slice();
+        }
+        if (typeof entry.columns === "number") {
+            merged.columns = entry.columns;
+        }
+        if (typeof entry.batch_size === "number") {
+            merged.batch_size = Math.max(merged.batch_size, entry.batch_size, merged.images.length);
+        } else {
+            merged.batch_size = Math.max(merged.batch_size, merged.images.length);
+        }
+        console.log(
+            `[${EXTENSION_NAMESPACE}] merged entry ${index} -> images=${merged.images.length} selections=${merged.selected_next.length}`
+        );
+    });
+
+    return merged;
+}
+
 function extractUiData(message) {
     if (!message) {
         return null;
@@ -358,9 +396,12 @@ function extractUiData(message) {
         (Array.isArray(message?.ui) ? message.ui[0] : undefined) ??
         message?.ui_data;
     if (Array.isArray(raw)) {
-        return raw[0];
+        return mergeContactSheetEntries(raw);
     }
-    return raw || null;
+    if (raw && typeof raw === "object") {
+        return mergeContactSheetEntries([raw]);
+    }
+    return null;
 }
 
 app.registerExtension({
