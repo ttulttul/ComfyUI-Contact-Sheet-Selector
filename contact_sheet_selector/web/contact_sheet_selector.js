@@ -242,6 +242,10 @@ function createContactSheetWidget(node) {
             node_id: String(widget.node.id),
             selection,
         };
+        console.log(
+            `[${EXTENSION_NAMESPACE}] notifySelectionChange payload`,
+            payload
+        );
 
         try {
             widget.selectionPostPromise = api.fetchApi("/contact-sheet-selector/selection", {
@@ -252,6 +256,7 @@ function createContactSheetWidget(node) {
                 body: JSON.stringify(payload),
             });
             await widget.selectionPostPromise;
+            console.log(`[${EXTENSION_NAMESPACE}] selection POST completed`);
         } catch (error) {
             console.error("ContactSheetSelector: failed to persist selection", error);
         } finally {
@@ -269,6 +274,10 @@ function createContactSheetWidget(node) {
         console.log(
             `[${EXTENSION_NAMESPACE}] toggled index ${index}; next selection now`,
             Array.from(widget.selectedNext.values()).sort((a, b) => a - b)
+        );
+        console.log(
+            `[${EXTENSION_NAMESPACE}] active selection currently`,
+            Array.from(widget.selectedActive.values()).sort((a, b) => a - b)
         );
         widget.node.setDirtyCanvas(true, true);
         void widget.notifySelectionChange();
@@ -289,28 +298,12 @@ function createContactSheetWidget(node) {
             return false;
         }
 
-        const localX = pos[0];
-        const localY = pos[1];
+        const localX = pos[0] - node.pos[0];
+        const localY = pos[1] - node.pos[1];
 
         const relativeY = localY - widget.lastWidgetY;
 
-        const pointerOverWidget =
-            localX >= widget.padding &&
-            localX <= widget.cachedWidth - widget.padding &&
-            relativeY >= 0 &&
-            relativeY <= widget.cachedHeight;
-        console.log(
-            `[${EXTENSION_NAMESPACE}] pointerOverWidget=${pointerOverWidget} localX=${localX} localY=${localY} relativeY=${relativeY} widgetY=${widget.lastWidgetY} height=${widget.cachedHeight}`
-        );
-
-        if (!pointerOverWidget) {
-            console.log(`[${EXTENSION_NAMESPACE}] pointer outside widget bounds`);
-            if (event.type === pointerMoveEvent) {
-                widget.updateHover(null);
-            }
-            return false;
-        }
-
+        let handled = false;
         for (const layout of widget.layouts) {
             const inside =
                 localX >= layout.x &&
@@ -330,21 +323,22 @@ function createContactSheetWidget(node) {
                     localY
                 );
                 widget.toggleSelection(layout.index);
-                return true;
+                handled = true;
+                break;
             }
 
             if (event.type === pointerMoveEvent) {
                 widget.updateHover(layout.index);
+                handled = true;
+                break;
             }
-
-            return false;
         }
 
-        if (event.type === pointerMoveEvent) {
+        if (!handled && event.type === pointerMoveEvent) {
             widget.updateHover(null);
         }
 
-        return false;
+        return handled;
     };
 
     widget.onRemove = function onRemove() {

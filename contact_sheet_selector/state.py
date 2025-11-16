@@ -105,9 +105,10 @@ def queue_pending_selection(node_id: str, selection: List[int]) -> List[int]:
         state.pending = sanitized
 
         logger.debug(
-            "Queued pending selection for node %s: %s (last batch size=%s)",
+            "Queued pending selection for node %s: %s (incoming=%s, last batch size=%s)",
             node_id,
             sanitized,
+            selection,
             batch_size,
         )
         return sanitized
