@@ -29,6 +29,7 @@ The optional **columns** input lets you customise the number of thumbnails shown
 
 - Backend logic lives in `contact_sheet_selector/node.py`, with selection state helpers in `contact_sheet_selector/state.py`.
 - The custom frontend widget is implemented in `contact_sheet_selector/web/contact_sheet_selector.js`.
+- Extra pointer-coordinate debugging logs in the frontend widget help trace canvas-to-node transformations when selections feel misaligned.
 - Automated tests cover the state lifecycles and the delayed-selection behaviour (`tests/test_contact_sheet_selector.py`). Run them with:
 
 ```bash

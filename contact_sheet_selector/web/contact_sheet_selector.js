@@ -311,12 +311,36 @@ function createContactSheetWidget(node) {
 
         const nodeCanvasDS = node.graph?.canvas?.ds;
         const parentCanvasDS = node.graph?.parent_graph?.canvas?.ds;
+        const formatDS = (ds) =>
+            ds
+                ? {
+                      scale: ds.scale,
+                      offset: ds.offset,
+                      view_offset: ds.view_offset,
+                      extra_offset: ds.extra_offset,
+                  }
+                : null;
+
+        console.log(
+            `[${EXTENSION_NAMESPACE}] pointer context`,
+            {
+                nodePos: node.pos,
+                nodeSize: node.size,
+                pointerCanvasPos: pos,
+                lastWidgetY: widget.lastWidgetY,
+                nodeCanvasDS: formatDS(nodeCanvasDS),
+                parentCanvasDS: formatDS(parentCanvasDS),
+            }
+        );
 
         if (nodeCanvasDS?.convertCanvasToOffset) {
+            console.log(`[${EXTENSION_NAMESPACE}] using node canvas ds for coordinate conversion`);
             [localX, localY] = toLocal(nodeCanvasDS, pos);
         } else if (parentCanvasDS?.convertCanvasToOffset) {
+            console.log(`[${EXTENSION_NAMESPACE}] using parent canvas ds for coordinate conversion`);
             [localX, localY] = toLocal(parentCanvasDS, pos);
         } else {
+            console.log(`[${EXTENSION_NAMESPACE}] falling back to basic coordinate conversion`);
             localX = pos[0] - node.pos[0];
             localY = pos[1] - node.pos[1];
         }
@@ -331,11 +355,24 @@ function createContactSheetWidget(node) {
             console.log(
                 `[${EXTENSION_NAMESPACE}] checking layout index=${layout.index} x=${layout.x}-${layout.x + layout.width} y=${layout.y}-${layout.y + layout.height}`
             );
-            const inside =
-                localX >= layout.x &&
-                localX <= layout.x + layout.width &&
-                relativeY >= layout.y &&
-                relativeY <= layout.y + layout.height;
+            const withinX =
+                localX >= layout.x && localX <= layout.x + layout.width;
+            const withinY =
+                relativeY >= layout.y && relativeY <= layout.y + layout.height;
+            const inside = withinX && withinY;
+            if (!inside) {
+                console.log(
+                    `[${EXTENSION_NAMESPACE}] point outside layout`,
+                    layout.index,
+                    {
+                        localX,
+                        localY,
+                        relativeY,
+                        withinX,
+                        withinY,
+                    }
+                );
+            }
             if (!inside) {
                 continue;
             }
