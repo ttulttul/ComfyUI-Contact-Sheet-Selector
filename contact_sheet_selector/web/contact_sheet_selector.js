@@ -4,8 +4,10 @@ import { api } from "../../../scripts/api.js";
 const EXTENSION_NAMESPACE = "ContactSheetSelector";
 console.log(`[${EXTENSION_NAMESPACE}] frontend script loaded`);
 
-const pointerDownEvent = LiteGraph.pointerevents_method + "down";
-const pointerMoveEvent = LiteGraph.pointerevents_method + "move";
+const pointerDownEvent =
+  (window.LiteGraph?.pointerevents_method || "pointer") + "down";
+const pointerMoveEvent =
+  (window.LiteGraph?.pointerevents_method || "pointer") + "move";
 
 function loadImage(src) {
     return new Promise((resolve, reject) => {
