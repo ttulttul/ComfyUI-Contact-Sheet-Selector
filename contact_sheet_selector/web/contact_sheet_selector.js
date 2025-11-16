@@ -301,23 +301,24 @@ function createContactSheetWidget(node) {
             return false;
         }
 
-        const toLocal = (ds, coordinates) => {
-            const [gx, gy] = ds.convertCanvasToOffset(coordinates);
-            return [gx - node.pos[0], gy - node.pos[1]];
-        };
-
         let localX;
         let localY;
 
         const nodeCanvasDS = node.graph?.canvas?.ds;
         const parentCanvasDS = node.graph?.parent_graph?.canvas?.ds;
+        const appCanvasDS = app?.canvas?.ds;
+        const toPlainPair = (value) =>
+            value && (Array.isArray(value) || ArrayBuffer.isView(value))
+                ? [Number(value[0] ?? 0), Number(value[1] ?? 0)]
+                : null;
         const formatDS = (ds) =>
             ds
                 ? {
-                      scale: ds.scale,
-                      offset: ds.offset,
-                      view_offset: ds.view_offset,
-                      extra_offset: ds.extra_offset,
+                      scale: typeof ds.scale === "number" ? ds.scale : Number(ds.scale ?? 1),
+                      offset: toPlainPair(ds.offset),
+                      view_offset: toPlainPair(ds.view_offset),
+                      extra_offset: toPlainPair(ds.extra_offset),
+                      has_convert: typeof ds.convertCanvasToOffset === "function",
                   }
                 : null;
 
@@ -330,17 +331,85 @@ function createContactSheetWidget(node) {
                 lastWidgetY: widget.lastWidgetY,
                 nodeCanvasDS: formatDS(nodeCanvasDS),
                 parentCanvasDS: formatDS(parentCanvasDS),
+                appCanvasDS: formatDS(appCanvasDS),
             }
         );
 
-        if (nodeCanvasDS?.convertCanvasToOffset) {
-            console.log(`[${EXTENSION_NAMESPACE}] using node canvas ds for coordinate conversion`);
-            [localX, localY] = toLocal(nodeCanvasDS, pos);
-        } else if (parentCanvasDS?.convertCanvasToOffset) {
-            console.log(`[${EXTENSION_NAMESPACE}] using parent canvas ds for coordinate conversion`);
-            [localX, localY] = toLocal(parentCanvasDS, pos);
+        const dsCandidates = [
+            { label: "nodeCanvasDS", ds: nodeCanvasDS },
+            { label: "parentCanvasDS", ds: parentCanvasDS },
+            { label: "appCanvasDS", ds: appCanvasDS },
+        ].filter((candidate) => !!candidate.ds);
+
+        const convertWithDS = (ds, coordinates) => {
+            if (!ds) {
+                return null;
+            }
+            if (typeof ds.convertCanvasToOffset === "function") {
+                try {
+                    return ds.convertCanvasToOffset(coordinates);
+                } catch (error) {
+                    console.warn(
+                        `[${EXTENSION_NAMESPACE}] convertCanvasToOffset threw`,
+                        error
+                    );
+                }
+            }
+
+            const scale = Number(ds.scale ?? 1);
+            if (!Number.isFinite(scale) || scale === 0) {
+                return null;
+            }
+
+            const offset = toPlainPair(ds.offset) || [0, 0];
+            const viewOffset = toPlainPair(ds.view_offset) || [0, 0];
+            const extraOffset = toPlainPair(ds.extra_offset) || [0, 0];
+
+            const aggregateOffsetX = offset[0] + viewOffset[0] + extraOffset[0];
+            const aggregateOffsetY = offset[1] + viewOffset[1] + extraOffset[1];
+
+            const canvasX = coordinates[0] - aggregateOffsetX;
+            const canvasY = coordinates[1] - aggregateOffsetY;
+
+            return [canvasX / scale, canvasY / scale];
+        };
+
+        const dsDiagnostics = dsCandidates.map(({ label, ds }) => {
+            const graphCoords = convertWithDS(ds, pos);
+            return {
+                label,
+                ds: formatDS(ds),
+                graphCoords,
+                localCoords: graphCoords
+                    ? [graphCoords[0] - node.pos[0], graphCoords[1] - node.pos[1]]
+                    : null,
+            };
+        });
+
+        console.log(
+            `[${EXTENSION_NAMESPACE}] ds conversion attempts`,
+            dsDiagnostics
+        );
+
+        const primaryConversion = dsDiagnostics.find(
+            (entry) => Array.isArray(entry.localCoords)
+        );
+
+        if (primaryConversion?.localCoords) {
+            localX = primaryConversion.localCoords[0];
+            localY = primaryConversion.localCoords[1];
+            console.log(
+                `[${EXTENSION_NAMESPACE}] resolved coordinates using ${primaryConversion.label}`,
+                {
+                    graphCoords: primaryConversion.graphCoords,
+                    localX,
+                    localY,
+                }
+            );
         } else {
-            console.log(`[${EXTENSION_NAMESPACE}] falling back to basic coordinate conversion`);
+            console.log(
+                `[${EXTENSION_NAMESPACE}] falling back to basic coordinate conversion`
+            );
             localX = pos[0] - node.pos[0];
             localY = pos[1] - node.pos[1];
         }
