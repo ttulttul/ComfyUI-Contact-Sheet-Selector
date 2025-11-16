@@ -301,8 +301,70 @@ function createContactSheetWidget(node) {
             return false;
         }
 
-        let localX;
-        let localY;
+        const layoutBounds = widget.layouts.reduce(
+            (bounds, layout) => {
+                const maxX = layout.x + layout.width;
+                const maxY = layout.y + layout.height;
+                return {
+                    minX: Math.min(bounds.minX, layout.x),
+                    maxX: Math.max(bounds.maxX, maxX),
+                    minY: Math.min(bounds.minY, layout.y),
+                    maxY: Math.max(bounds.maxY, maxY),
+                };
+            },
+            {
+                minX: Number.POSITIVE_INFINITY,
+                maxX: Number.NEGATIVE_INFINITY,
+                minY: Number.POSITIVE_INFINITY,
+                maxY: Number.NEGATIVE_INFINITY,
+            }
+        );
+
+        const hasLayoutBounds = Number.isFinite(layoutBounds.minX);
+        const layoutPadding = widget.padding + widget.gap;
+        const layoutSpanX = hasLayoutBounds
+            ? layoutBounds.maxX - layoutBounds.minX + layoutPadding * 2
+            : 0;
+        const layoutSpanY = hasLayoutBounds
+            ? layoutBounds.maxY - layoutBounds.minY + layoutPadding * 2
+            : 0;
+        const maxWidgetWidth =
+            layoutSpanX ||
+            widget.cachedWidth ||
+            node.size?.[0] ||
+            320;
+        const maxWidgetHeight =
+            layoutSpanY ||
+            widget.cachedHeight ||
+            node.size?.[1] ||
+            320;
+
+        const baselineToleranceX = Math.max(24, layoutPadding);
+        const baselineToleranceY = Math.max(24, layoutPadding);
+        const isWithinX = (value) => {
+            if (!Number.isFinite(value)) {
+                return false;
+            }
+            if (hasLayoutBounds) {
+                return (
+                    value >= layoutBounds.minX - baselineToleranceX &&
+                    value <= layoutBounds.maxX + baselineToleranceX
+                );
+            }
+            return Math.abs(value) <= maxWidgetWidth;
+        };
+        const isWithinY = (value) => {
+            if (!Number.isFinite(value)) {
+                return false;
+            }
+            if (hasLayoutBounds) {
+                return (
+                    value >= layoutBounds.minY - baselineToleranceY &&
+                    value <= layoutBounds.maxY + baselineToleranceY
+                );
+            }
+            return Math.abs(value) <= maxWidgetHeight;
+        };
 
         const nodeCanvasDS = node.graph?.canvas?.ds;
         const parentCanvasDS = node.graph?.parent_graph?.canvas?.ds;
@@ -334,6 +396,32 @@ function createContactSheetWidget(node) {
                 appCanvasDS: formatDS(appCanvasDS),
             }
         );
+
+        const candidateSummaries = [];
+
+        const registerCandidate = (label, result) => {
+            const [localXRaw, localYRaw] = result?.local || [NaN, NaN];
+            const localX = Number(localXRaw);
+            const localY = Number(localYRaw);
+            const relativeY = Number(localY) - widget.lastWidgetY;
+            const withinX = isWithinX(localX);
+            const withinY = isWithinY(relativeY);
+            candidateSummaries.push({
+                label,
+                localX,
+                localY,
+                relativeY,
+                withinX,
+                withinY,
+                source: result,
+            });
+        };
+
+        registerCandidate("widgetPosArgument", { local: pos });
+
+        registerCandidate("graphCoordinatesRaw", {
+            local: [pos?.[0] - node.pos[0], pos?.[1] - node.pos[1]],
+        });
 
         const dsCandidates = [
             { label: "nodeCanvasDS", ds: nodeCanvasDS },
@@ -379,7 +467,7 @@ function createContactSheetWidget(node) {
             return {
                 label,
                 ds: formatDS(ds),
-                graphCoords,
+                graphCoords: graphCoords ? [graphCoords[0], graphCoords[1]] : null,
                 localCoords: graphCoords
                     ? [graphCoords[0] - node.pos[0], graphCoords[1] - node.pos[1]]
                     : null,
@@ -391,30 +479,56 @@ function createContactSheetWidget(node) {
             dsDiagnostics
         );
 
-        const primaryConversion = dsDiagnostics.find(
-            (entry) => Array.isArray(entry.localCoords)
-        );
-
-        if (primaryConversion?.localCoords) {
-            localX = primaryConversion.localCoords[0];
-            localY = primaryConversion.localCoords[1];
-            console.log(
-                `[${EXTENSION_NAMESPACE}] resolved coordinates using ${primaryConversion.label}`,
-                {
-                    graphCoords: primaryConversion.graphCoords,
-                    localX,
-                    localY,
-                }
-            );
-        } else {
-            console.log(
-                `[${EXTENSION_NAMESPACE}] falling back to basic coordinate conversion`
-            );
-            localX = pos[0] - node.pos[0];
-            localY = pos[1] - node.pos[1];
+        for (const entry of dsDiagnostics) {
+            registerCandidate(entry.label, {
+                local: entry.localCoords,
+                graphCoords: entry.graphCoords,
+                ds: entry.ds,
+            });
         }
 
-        const relativeY = localY - widget.lastWidgetY;
+        const plausibleCandidates = candidateSummaries.filter(
+            (candidate) =>
+                Number.isFinite(candidate.localX) &&
+                Number.isFinite(candidate.localY) &&
+                Number.isFinite(candidate.relativeY) &&
+                candidate.withinX &&
+                candidate.withinY
+        );
+
+        const fallbackCandidates = candidateSummaries.filter(
+            (candidate) =>
+                Number.isFinite(candidate.localX) &&
+                Number.isFinite(candidate.localY) &&
+                Number.isFinite(candidate.relativeY)
+        );
+
+        const chosenCandidate =
+            plausibleCandidates[0] ??
+            fallbackCandidates[0] ?? {
+                label: "default-zero",
+                localX: 0,
+                localY: widget.lastWidgetY,
+                relativeY: 0,
+            };
+
+        console.log(
+            `[${EXTENSION_NAMESPACE}] pointer resolution`,
+            {
+                candidates: candidateSummaries,
+                chosen: {
+                    label: chosenCandidate.label,
+                    localX: chosenCandidate.localX,
+                    localY: chosenCandidate.localY,
+                    relativeY: chosenCandidate.relativeY,
+                },
+            }
+        );
+
+        const localX = chosenCandidate.localX;
+        const localY = chosenCandidate.localY;
+        const relativeY = chosenCandidate.relativeY;
+
         console.log(
             `[${EXTENSION_NAMESPACE}] local coords x=${localX} y=${localY} relativeY=${relativeY} nodePos=(${node.pos?.[0]}, ${node.pos?.[1]})`
         );
