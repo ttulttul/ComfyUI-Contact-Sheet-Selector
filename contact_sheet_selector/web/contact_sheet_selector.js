@@ -705,6 +705,7 @@ function mergeContactSheetEntries(entries) {
         selected_next: [],
         columns: 0,
         batch_size: 0,
+        preview_token: null,
     };
 
     entries.forEach((entry, index) => {
@@ -727,6 +728,9 @@ function mergeContactSheetEntries(entries) {
             merged.batch_size = Math.max(merged.batch_size, entry.batch_size, merged.images.length);
         } else {
             merged.batch_size = Math.max(merged.batch_size, merged.images.length);
+        }
+        if (typeof entry.preview_token === "string" && entry.preview_token.length > 0) {
+            merged.preview_token = entry.preview_token;
         }
         console.log(
             `[${EXTENSION_NAMESPACE}] merged entry ${index} -> images=${merged.images.length} selections=${merged.selected_next.length}`
