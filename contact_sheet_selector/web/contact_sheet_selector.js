@@ -282,23 +282,25 @@ function createContactSheetWidget(node) {
         const height = widget.recomputeLayout(widgetWidth);
 
         ctx.save();
+        ctx.translate(0, y);
+
         ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.fillRect(widget.padding / 2, y, widgetWidth - widget.padding, height);
+        ctx.fillRect(widget.padding / 2, 0, widgetWidth - widget.padding, height);
 
         ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.font = "12px sans-serif";
         ctx.textBaseline = "top";
-        ctx.fillText("Click thumbnails to toggle the next-run selection.", widget.padding, y + 6);
+        ctx.fillText("Click thumbnails to toggle the next-run selection.", widget.padding, 6);
         ctx.fillStyle = "rgba(255,255,255,0.6)";
         ctx.fillText(
             "Solid border: next run  •  Dashed border: output from this run",
             widget.padding,
-            y + 20
+            20
         );
 
         if (widget.images.length === 0) {
             ctx.fillStyle = "rgba(255,255,255,0.5)";
-            ctx.fillText("No images received yet.", widget.padding, y + 40);
+            ctx.fillText("No images received yet.", widget.padding, 40);
             ctx.restore();
             return y + height;
         }
