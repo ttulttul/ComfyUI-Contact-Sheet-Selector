@@ -156,6 +156,13 @@ class ContactSheetSelector(io.ComfyNode):
 
         selected_images = _gather_selected_images(images, selection_for_output)
 
+        logger.info(
+            "ContactSheetSelector node=%s output tensor shape=%s (selected=%s)",
+            node_id,
+            tuple(int(dim) for dim in selected_images.shape),
+            selection_for_output,
+        )
+
         preview_signature = _compute_preview_signature(images)
         cached_signature, cached_data = get_preview_cache(node_id)
 
