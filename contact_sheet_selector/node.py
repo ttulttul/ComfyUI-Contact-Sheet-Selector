@@ -63,7 +63,8 @@ def _gather_selected_images(images: torch.Tensor, selection: List[int]) -> torch
     if len(selection) == 0:
         return images[0:0]
     index_tensor = torch.tensor(selection, dtype=torch.long, device=images.device)
-    return torch.index_select(images, 0, index_tensor)
+    gathered = torch.index_select(images, 0, index_tensor)
+    return gathered.contiguous().clone()
 
 
 def _compute_image_signature(image_tensor: torch.Tensor) -> str:
