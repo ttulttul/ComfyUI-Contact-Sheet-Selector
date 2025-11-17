@@ -154,3 +154,24 @@ def test_preview_cache_reused(monkeypatch):
     assert first_payload["preview_token"] == second_payload["preview_token"]
     assert len(first_payload["images"]) == images.shape[0]
     assert second_payload["images"] == []
+
+
+def test_preview_cache_includes_order(monkeypatch):
+    node_id = "node-h"
+    images = torch.rand((2, 8, 8, 3))
+    encode_calls = {"count": 0}
+
+    def fake_encode(image_tensor):
+        encode_calls["count"] += 1
+        return f"data:image/png;base64,order{encode_calls['count']}"
+
+    monkeypatch.setattr("contact_sheet_selector.node._encode_tensor_to_data_url", fake_encode)
+
+    with CurrentNodeContext(prompt_id="prompt-6", node_id=node_id):
+        ContactSheetSelector.execute(images, torch.tensor([0]))
+
+    with CurrentNodeContext(prompt_id="prompt-6", node_id=node_id):
+        ContactSheetSelector.execute(images.flip(0), torch.tensor([0]))
+
+    # Both executions should encode because the order change invalidates the cache.
+    assert encode_calls["count"] == images.shape[0] * 2

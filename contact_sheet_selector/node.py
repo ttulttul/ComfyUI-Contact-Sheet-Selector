@@ -66,17 +66,29 @@ def _gather_selected_images(images: torch.Tensor, selection: List[int]) -> torch
     return torch.index_select(images, 0, index_tensor)
 
 
-def _compute_preview_signature(images: torch.Tensor) -> str:
-    """Create a lightweight signature so we can reuse previously encoded previews."""
-    tensor = images.detach()
+def _compute_image_signature(image_tensor: torch.Tensor) -> str:
+    """Compute a deterministic signature for a single image tensor."""
+    tensor = image_tensor.detach().to(device="cpu", dtype=torch.float32)
     shape = tuple(int(dim) for dim in tensor.shape)
-    numel = tensor.numel()
+    flat = tensor.flatten()
+    numel = flat.numel()
     sample_size = min(numel, 4096)
     if sample_size == 0:
         return f"{shape}|empty"
-    sample = tensor.flatten()[:sample_size].to(dtype=torch.float32, device="cpu", copy=True)
-    digest = hashlib.sha1(sample.numpy().tobytes()).hexdigest()
+    sample = flat[:sample_size].numpy().tobytes()
+    digest = hashlib.sha1(sample).hexdigest()
     return f"{shape}|{sample_size}|{digest}"
+
+
+def _compute_preview_signature(images: torch.Tensor) -> tuple[str, ...]:
+    """Create per-image signatures so we can track both contents and ordering."""
+    tensor = images.detach()
+    if tensor.dim() == 3:
+        return (_compute_image_signature(tensor),)
+    signatures: list[str] = []
+    for index in range(tensor.shape[0]):
+        signatures.append(_compute_image_signature(tensor[index]))
+    return tuple(signatures)
 
 
 class ContactSheetSelector(io.ComfyNode):
@@ -162,10 +174,11 @@ class ContactSheetSelector(io.ComfyNode):
                     "ContactSheetSelector node=%s encoded %s preview(s) (signature=%s)",
                     node_id,
                     len(preview_data),
-                    preview_signature,
+                    "|".join(preview_signature),
                 )
 
         images_for_ui = [] if reuse_cached else preview_data
+        preview_token_str = "|".join(preview_signature) if preview_signature else ""
 
         ui_payload = {
             "contact_sheet": [
@@ -175,7 +188,7 @@ class ContactSheetSelector(io.ComfyNode):
                     "selected_next": selection_for_next,
                     "columns": columns_value,
                     "batch_size": batch_size,
-                    "preview_token": preview_signature,
+                    "preview_token": preview_token_str,
                 }
             ]
         }

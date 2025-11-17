@@ -13,7 +13,7 @@ class NodeSelectionState:
     active: List[int] = field(default_factory=list)
     pending: Optional[List[int]] = None
     last_batch_size: int = 0
-    preview_token: Optional[str] = None
+    preview_token: Optional[tuple[str, ...]] = None
     preview_data: List[str] = field(default_factory=list)
 
 
@@ -152,7 +152,7 @@ def inspect_state(node_id: str) -> Optional[NodeSelectionState]:
             active=list(state.active),
             pending=None if state.pending is None else list(state.pending),
             last_batch_size=state.last_batch_size,
-            preview_token=state.preview_token,
+            preview_token=tuple(state.preview_token) if state.preview_token else None,
             preview_data=list(state.preview_data),
         )
 
@@ -164,18 +164,21 @@ def reset_state() -> None:
         logger.debug("Cleared all contact sheet selection state")
 
 
-def get_preview_cache(node_id: str) -> tuple[Optional[str], Optional[List[str]]]:
+def get_preview_cache(node_id: str) -> tuple[Optional[tuple[str, ...]], Optional[List[str]]]:
     """Return the cached preview token and data for a node, if available."""
     with _state_lock:
         state = _selection_state.get(node_id)
         if state is None or not state.preview_data:
             return None, None
-        return state.preview_token, list(state.preview_data)
+        return (
+            tuple(state.preview_token) if state.preview_token else None,
+            list(state.preview_data),
+        )
 
 
-def update_preview_cache(node_id: str, token: str, data: List[str]) -> None:
+def update_preview_cache(node_id: str, token: tuple[str, ...], data: List[str]) -> None:
     """Persist the preview token and data for reuse across executions."""
     with _state_lock:
         state = _selection_state.setdefault(node_id, NodeSelectionState())
-        state.preview_token = token
+        state.preview_token = tuple(token)
         state.preview_data = list(data)
