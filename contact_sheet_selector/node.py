@@ -104,6 +104,7 @@ class ContactSheetSelector(io.ComfyNode):
                 "Display the incoming batch as a contact sheet and let the user choose "
                 "which images should be forwarded on the next execution."
             ),
+            not_idempotent=True,
             inputs=[
                 io.Image.Input("images"),
                 io.Int.Input(
