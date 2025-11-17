@@ -75,10 +75,12 @@ def resolve_selection_for_execution(node_id: str, batch_size: int) -> tuple[List
         active = _sanitize_selection(state.active, batch_size) or list(range(batch_size))
         original_pending = state.pending
         pending = (
-            _sanitize_selection(state.pending, batch_size) if state.pending is not None else None
+            _sanitize_selection(state.pending, batch_size)
+            if state.pending is not None
+            else None
         )
 
-        if original_pending and pending == []:
+        if original_pending is not None and pending == []:
             logger.info(
                 "Dropping stale pending selection for node %s (original=%s, batch size=%s)",
                 node_id,
